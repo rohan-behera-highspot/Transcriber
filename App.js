@@ -1,14 +1,18 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Button, StyleSheet, FlatList, SafeAreaView } from "react-native";
+import { 
+  View, Text, TouchableOpacity, StyleSheet, FlatList, SafeAreaView, ActivityIndicator
+} from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Audio } from "expo-av";
-import { Card } from 'react-native-paper';
-import AssetExample from './components/AssetExample';
+import { Card } from "react-native-paper";
+import { Ionicons } from "@expo/vector-icons";
+import AssetExample from "./components/AssetExample";
 
 export default function App() {
   const [recording, setRecording] = useState(null);
   const [audioUri, setAudioUri] = useState(null);
   const [transcription, setTranscription] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const startRecording = async () => {
     try {
@@ -17,7 +21,6 @@ export default function App() {
         alert("Permission to access microphone is required!");
         return;
       }
-      
       const { recording } = await Audio.Recording.createAsync(
         Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY
       );
@@ -45,14 +48,13 @@ export default function App() {
       alert("No audio selected!");
       return;
     }
-
+    setLoading(true);
     let formData = new FormData();
     formData.append("file", {
       uri: audioUri,
       name: "audiofile.wav",
       type: "audio/wav",
     });
-
     try {
       let response = await fetch("YOUR_PYTHON_API_URL/transcribe", {
         method: "POST",
@@ -60,30 +62,48 @@ export default function App() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       let json = await response.json();
-      setTranscription(json.transcript);
+      setTranscription(json.transcripts);
     } catch (error) {
       console.error("Error transcribing audio", error);
     }
+    setLoading(false);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Speech Transcriber</Text>
-      <TouchableOpacity onPress={recording ? stopRecording : startRecording} style={styles.button}>
-        <Text style={styles.buttonText}>{recording ? "Stop Recording" : "Start Recording"}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={pickAudioFile} style={styles.button}>
-        <Text style={styles.buttonText}>Upload Audio File</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={transcribeAudio} style={styles.button}>
-        <Text style={styles.buttonText}>Get Transcription</Text>
-      </TouchableOpacity>
+      <Text style={styles.title}>WhisperSpot</Text>
+      <Card style={styles.card}>
+        <TouchableOpacity onPress={recording ? stopRecording : startRecording} style={[styles.button, { backgroundColor: recording ? "#ff3b30" : "#007AFF" }]}>
+          <Ionicons name={recording ? "stop-circle" : "mic-circle"} size={30} color="white" />
+          <Text style={styles.buttonText}>{recording ? "Stop Recording" : "Start Recording"}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={pickAudioFile} style={styles.button}>
+          <Ionicons name="cloud-upload-outline" size={30} color="white" />
+          <Text style={styles.buttonText}>Upload Audio File</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={transcribeAudio} style={[styles.button, { backgroundColor: "#34C759" }]}>
+          <Ionicons name="document-text-outline" size={30} color="white" />
+          <Text style={styles.buttonText}>Get Transcription</Text>
+        </TouchableOpacity>
+      </Card>
+      
+      {loading && <ActivityIndicator size="large" color="#007AFF" />}
+      
       <FlatList
         data={transcription}
         keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => <Text style={styles.transcription}>{item}</Text>}
+        renderItem={({ item }) => (
+          <Card style={styles.transcriptionCard}>
+            <Text style={styles.transcriptionText}><Text style={styles.bold}>Start Time:</Text> {item.start_time}</Text>
+            <Text style={styles.transcriptionText}><Text style={styles.bold}>Speaker:</Text> {item.speaker}</Text>
+            <Text style={styles.transcriptionText}><Text style={styles.bold}>Message:</Text> {item.text}</Text>
+          </Card>
+        )}
       />
-      <Card>
+      
+      <Card style={styles.assetCard}>
         <AssetExample />
       </Card>
     </SafeAreaView>
@@ -93,29 +113,54 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    backgroundColor: '#ecf0f1',
-    padding: 8,
+    justifyContent: "center",
+    backgroundColor: "#F9F9F9",
+    padding: 16,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#333",
     marginBottom: 20,
   },
+  card: {
+    padding: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    elevation: 4,
+  },
   button: {
-    backgroundColor: "blue",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#007AFF",
     padding: 15,
     borderRadius: 10,
     marginVertical: 10,
+    justifyContent: "center",
   },
   buttonText: {
     color: "white",
+    fontSize: 18,
+    marginLeft: 10,
+  },
+  transcriptionCard: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+    marginVertical: 8,
+    elevation: 3,
+  },
+  transcriptionText: {
     fontSize: 16,
+    marginBottom: 5,
   },
-  transcription: {
-    fontSize: 14,
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
+  bold: {
+    fontWeight: "bold",
   },
+  assetCard: {
+    marginTop: 20,
+    borderRadius: 12,
+  }
 });
