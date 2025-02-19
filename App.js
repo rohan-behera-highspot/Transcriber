@@ -1,16 +1,16 @@
 import React, { useState } from "react";
 import { 
-  View, Text, TouchableOpacity, StyleSheet, FlatList, SafeAreaView, ActivityIndicator
+  View, Text, TouchableOpacity, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, Alert
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Audio } from "expo-av";
 import { Card } from "react-native-paper";
 import { Ionicons } from "@expo/vector-icons";
-import AssetExample from "./components/AssetExample";
 
 export default function App() {
   const [recording, setRecording] = useState(null);
   const [audioUri, setAudioUri] = useState(null);
+  const [audioFileName, setAudioFileName] = useState("");  // New state to store file name
   const [transcription, setTranscription] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -37,9 +37,22 @@ export default function App() {
   };
 
   const pickAudioFile = async () => {
-    let result = await DocumentPicker.getDocumentAsync({ type: "audio/*" });
-    if (result.type === "success") {
-      setAudioUri(result.uri);
+    try {
+      let result = await DocumentPicker.getDocumentAsync({ type: "audio/*" });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedFile = result.assets[0];
+        setAudioUri(selectedFile.uri);
+        setAudioFileName(selectedFile.name);  // Save file name
+
+        // Show alert that file was uploaded successfully
+        Alert.alert("Success", `File uploaded: ${selectedFile.name}`);
+      } else {
+        alert("No file selected!");
+      }
+    } catch (error) {
+      console.error("Error picking audio file:", error);
+      alert("Failed to pick an audio file.");
     }
   };
 
@@ -52,7 +65,7 @@ export default function App() {
     let formData = new FormData();
     formData.append("file", {
       uri: audioUri,
-      name: "audiofile.wav",
+      name: audioFileName || "audiofile.wav",
       type: "audio/wav",
     });
     try {
@@ -83,6 +96,11 @@ export default function App() {
           <Text style={styles.buttonText}>Upload Audio File</Text>
         </TouchableOpacity>
 
+        {/* Show uploaded file name if available */}
+        {audioFileName ? (
+          <Text style={styles.fileName}>Uploaded File: {audioFileName}</Text>
+        ) : null}
+
         <TouchableOpacity onPress={transcribeAudio} style={[styles.button, { backgroundColor: "#34C759" }]}>
           <Ionicons name="document-text-outline" size={30} color="white" />
           <Text style={styles.buttonText}>Get Transcription</Text>
@@ -102,10 +120,6 @@ export default function App() {
           </Card>
         )}
       />
-      
-      <Card style={styles.assetCard}>
-        <AssetExample />
-      </Card>
     </SafeAreaView>
   );
 }
@@ -145,6 +159,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginLeft: 10,
   },
+  fileName: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#333",
+    textAlign: "center",
+    fontWeight: "bold",
+  },
   transcriptionCard: {
     padding: 12,
     borderRadius: 10,
@@ -158,9 +179,5 @@ const styles = StyleSheet.create({
   },
   bold: {
     fontWeight: "bold",
-  },
-  assetCard: {
-    marginTop: 20,
-    borderRadius: 12,
   }
 });
