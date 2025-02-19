@@ -56,10 +56,11 @@ export default function App() {
       type: "audio/wav",
     });
     try {
-      let response = await fetch("YOUR_PYTHON_API_URL/transcribe", {
+      let response = await fetch("http://172.16.4.155:8000/transcribe", {
         method: "POST",
         body: formData,
         headers: { "Content-Type": "multipart/form-data" },
+        redirect: "follow",
       });
       let json = await response.json();
       setTranscription(json.transcripts);
